@@ -1,0 +1,19 @@
+{
+  "name": "@nowpayments/nowpayments-api-php",
+  "type": "library",
+  "license": "MIT",
+  "homepage": "https://github.com/NowPaymentsIO/nowpayments-api-php",
+  "description": "PHP Library",
+  "authors": [
+    {
+      "name": "bogdanaks",
+      "email": "bogdanaks@bk.ru"
+    }
+  ],
+  "require": {
+    "php": ">=7.2"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "~8.0"
+  }
+}
