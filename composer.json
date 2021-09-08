@@ -1,5 +1,5 @@
 {
-  "name": "@nowpayments/nowpayments-api-php",
+  "name": "nowpayments/nowpayments-api-php",
   "type": "library",
   "license": "MIT",
   "homepage": "https://github.com/NowPaymentsIO/nowpayments-api-php",
