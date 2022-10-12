@@ -1,15 +1,30 @@
 <?php 
+/**
+ * NOW Payments
+ * https://nowpayments.io
+ *
+ * @see https://github.com/NowPaymentsIO/nowpayments-api-php.git
+ * @see https://documenter.getpostman.com/view/7907941/S1a32n38?version=latest#intro
+ */
 
-class NowPaymentsAPI {
-	private $session, $token;
+ class NowPaymentsAPI
+{
+	private $session, $token, $apiVersion;
 
-	const API_BASE = 'https://api.nowpayments.io/v1/';
+	const API_PRODUCTION_BASE = 'https://api.nowpayments.io/v1/';
+	const API_SANDBOX_BASE    = 'https://api-sandbox.nowpayments.io/v1/';
 
-	function __construct(string $token) {
+	function __construct(string $token, bool $sandbox=false) {
 		if(empty($token)) {
 			throw new Exception('API key is not specified');
 		} else {
 			$this->token = $token;
+		}
+
+		if ($sandbox===true) {
+			$this->apiVersion = self::API_SANDBOX_BASE;
+		} else {
+			$this->apiVersion = self::API_PRODUCTION_BASE;
 		}
 
 		$ch = curl_init();
@@ -20,30 +35,34 @@ class NowPaymentsAPI {
 		$this->session = $ch;
 	}
 
-	private function Call($method, $endpoint, $data = []) {
+	private function Call($method, $endpoint, $data = [], $bearerJWT = '') {
 		$ch = $this->session;
 
 		switch ($method) {
 			case 'GET':
-				curl_setopt($ch, CURLOPT_HTTPHEADER, ['X-API-KEY: '.$this->token]);
+				$headers[] = 'X-API-KEY: '.$this->token;
+				if(!empty($bearerJWT)) {
+					$headers[] = 'Authorization: '.$bearerJWT;
+				}
+				curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 				if(!empty($data)) {
 					if(is_array($data)) {
 						$parameters = http_build_query($data);
-						curl_setopt($ch, CURLOPT_URL, self::API_BASE.$endpoint.'?'.$parameters);
+						curl_setopt($ch, CURLOPT_URL, $this->apiVersion.$endpoint.'?'.$parameters);
 					} else {
-						if($endpoint == 'payment') curl_setopt($ch, CURLOPT_URL, self::API_BASE.$endpoint.'/'.$data);
+						if($endpoint == 'payment') curl_setopt($ch, CURLOPT_URL, $this->apiVersion.$endpoint.'/'.$data);
 					}
 				} else {
-					curl_setopt($ch, CURLOPT_URL, self::API_BASE.$endpoint);
+					curl_setopt($ch, CURLOPT_URL, $this->apiVersion.$endpoint);
 				}
 				break;
-			
+
 			case 'POST':
 				$data = json_encode($data);
 				curl_setopt($ch, CURLOPT_HTTPHEADER, ['X-API-KEY: '.$this->token, 'Content-Type: application/json']);
 				curl_setopt($ch, CURLOPT_POST, true);
 				curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-				curl_setopt($ch, CURLOPT_URL, self::API_BASE.$endpoint);
+				curl_setopt($ch, CURLOPT_URL, $this->apiVersion.$endpoint);
 				break;
 
 			default:
@@ -59,8 +78,16 @@ class NowPaymentsAPI {
 		return $this->Call('GET', 'status');
 	}
 
-	public function getCurrencies() {
-		return $this->Call('GET', 'currencies');
+	/**
+	 * @param string $list Optional. Accepts 'full', 'available', or empty. Default empty.
+	 */
+	public function getCurrencies(string $list="") {
+		if ( $list=="full" )
+			return $this->Call('GET', 'full-currencies');
+		elseif ( $list=="available" )
+			return $this->Call('GET', 'merchant/coins ');
+		else
+			return $this->Call('GET', 'currencies');
 	}
 
 	/**
@@ -108,10 +135,22 @@ class NowPaymentsAPI {
 	*    $params = [
 	*      'currency_from'		=> (string) Required.
 	*      'currency_to'		=> (string) Required.
+	*      'fiat_equivalent'	=> (string) Optional. Fiat equivalent of the minimum amount.
 	*    ]
 	*/
 	public function getMinimumPaymentAmount(array $params) {
 		return $this->Call('GET', 'min-amount', $params);
+	}
+
+	/**
+	* @param array $params Array of options, all values are required
+	*    $params = [
+	*      'email'			=> (string) email which you are using for signing in into dashboard
+	*      'password'		=> (string) password which you are using for signing in into dashboard
+	*    ]
+	*/
+	public function getBearerJWT(array $params = []) {
+		return $this->Call('POST', 'auth', $params);
 	}
 
 	/**
@@ -125,8 +164,8 @@ class NowPaymentsAPI {
 	*      'dateTo'			=> (string) select the displayed period end date (date format: YYYY-MM-DD or yy-MM-ddTHH:mm:ss.SSSZ)
 	*    ]
 	*/
-	public function getListPayments(array $params = []) {
-		return $this->Call('GET', 'payment', $params);
+	public function getListPayments(array $params = [], string $bearerJWT = '') {
+		return $this->Call('GET', 'payment', $params, $bearerJWT);
 	}
 
 	/**
@@ -134,7 +173,7 @@ class NowPaymentsAPI {
 	*    $params = [
 	*      'price_amount'			=> (int|float) Required. The fiat equivalent of the price to be paid in crypto.
 	*      'price_currency'			=> (string) Required. The fiat currency in which the price_amount is specified (usd, eur, etc)
-	*      'pay_currency'			=> (string) Required. The crypto currency in which the pay_amount is specified (btc, eth, etc)
+	*      'pay_currency'			=> (string) Optional. The crypto currency in which the pay_amount is specified (btc, eth, etc). If not specified, can be chosen on the invoice_url
 	*      'ipn_callback_url'		=> (string) Optional. URL to receive callbacks, should contain "http" or "https", eg. "https://nowpayments.io"
 	*      'order_id'				=> (string) Optional. Inner store order ID, e.g. "RGDBP-21314"
 	*      'order_description'		=> (string) Optional. Inner store order description, e.g. "Apple Macbook Pro 2019 x 1" 
@@ -150,5 +189,3 @@ class NowPaymentsAPI {
 		curl_close($this->session);
 	}
 }
-
- ?>
