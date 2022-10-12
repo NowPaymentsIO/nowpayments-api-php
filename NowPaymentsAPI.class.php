@@ -1,6 +1,14 @@
-<?php
+<?php 
+/**
+ * NOW Payments
+ * https://nowpayments.io
+ *
+ * @see https://github.com/NowPaymentsIO/nowpayments-api-php.git
+ * @see https://documenter.getpostman.com/view/7907941/S1a32n38?version=latest#intro
+ */
 
-class NowPaymentsAPI {
+ class NowPaymentsAPI
+{
 	private $session, $token, $apiVersion;
 
 	const API_PRODUCTION_BASE = 'https://api.nowpayments.io/v1/';
@@ -27,12 +35,16 @@ class NowPaymentsAPI {
 		$this->session = $ch;
 	}
 
-	private function Call($method, $endpoint, $data = []) {
+	private function Call($method, $endpoint, $data = [], $bearerJWT = '') {
 		$ch = $this->session;
 
 		switch ($method) {
 			case 'GET':
-				curl_setopt($ch, CURLOPT_HTTPHEADER, ['X-API-KEY: '.$this->token]);
+				$headers[] = 'X-API-KEY: '.$this->token;
+				if(!empty($bearerJWT)) {
+					$headers[] = 'Authorization: '.$bearerJWT;
+				}
+				curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 				if(!empty($data)) {
 					if(is_array($data)) {
 						$parameters = http_build_query($data);
@@ -131,6 +143,17 @@ class NowPaymentsAPI {
 	}
 
 	/**
+	* @param array $params Array of options, all values are required
+	*    $params = [
+	*      'email'			=> (string) email which you are using for signing in into dashboard
+	*      'password'		=> (string) password which you are using for signing in into dashboard
+	*    ]
+	*/
+	public function getBearerJWT(array $params = []) {
+		return $this->Call('POST', 'auth', $params);
+	}
+
+	/**
 	* @param array $params Array of options, all values are optional
 	*    $params = [
 	*      'limit'			=> (int|string) number of records in one page. (possible values: from 1 to 500)
@@ -141,8 +164,8 @@ class NowPaymentsAPI {
 	*      'dateTo'			=> (string) select the displayed period end date (date format: YYYY-MM-DD or yy-MM-ddTHH:mm:ss.SSSZ)
 	*    ]
 	*/
-	public function getListPayments(array $params = []) {
-		return $this->Call('GET', 'payment', $params);
+	public function getListPayments(array $params = [], string $bearerJWT = '') {
+		return $this->Call('GET', 'payment', $params, $bearerJWT);
 	}
 
 	/**
